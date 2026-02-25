@@ -1,0 +1,366 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ENUMS
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN_VALIDATOR
+  ADMIN_FINANCE
+  CLIENT
+  MERCHANT_OWNER
+  MERCHANT_ASSOCIATE
+}
+
+enum MerchantStatus {
+  INCOMPLETE
+  PENDING_VERIFICATION
+  ACTIVE
+  REJECTED
+  VACATION
+  SUSPENDED
+  CLOSED
+}
+
+enum GigStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  PAUSED
+  REJECTED
+  REMOVED
+  FEATURED
+}
+
+enum OrderStatus {
+  UNPAID
+  PAID_PENDING_CONFIRMATION
+  IN_PROGRESS
+  DELIVERED
+  IN_REVISION
+  DISPUTE_IN_PROGRESS
+  REFUND_APPROVED_WAITING_FINANCE
+  RELEASE_APPROVED_WAITING_FINANCE
+  COMPLETED
+  REFUNDED
+  CANCELLED
+}
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+  WITHDRAWAL
+  COMMISSION
+  AD_PAYMENT
+  ADJUSTMENT
+}
+
+enum TransactionStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum CustomOfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum MonthlyReportStatus {
+  DRAFT
+  PROCESSED
+  LOCKED
+}
+
+enum AssociatePermission {
+  VIEW_ONLY
+  MANAGE_GIGS
+  MANAGE_ORDERS
+  FULL_ACCESS
+}
+
+enum WithdrawalStatus {
+  PENDING
+  COMPLETED
+  REJECTED
+}
+
+enum FeaturedPaymentStatus {
+  PENDING_PAYMENT
+  PENDING_VERIFICATION
+  ACTIVE
+  EXPIRED
+  REJECTED
+}
+
+enum MerchantBadge {
+  NEWCOMER
+  RISING_STAR
+  STAR_VENDOR
+  SIGNATURE_PARTNER
+}
+
+
+// MODELS
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  role         Role     @default(CLIENT)
+  isSuspended  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  merchant                 Merchant?
+  merchantAssociates       MerchantAssociate[]
+  clientOrders             Order[]              @relation("ClientOrders")
+  transactions             Transaction[]
+  disputeValidations       Dispute[]            @relation("DisputeValidator")
+  transactionVerifications Transaction[]        @relation("TransactionVerifier")
+  orderDeliverables        OrderDeliverable[]   @relation("DeliverableSubmitter")
+  clientReviews            Review[]
+  clientCustomOffers       CustomOffer[]        @relation("ClientCustomOffers")
+}
+
+model Merchant {
+  id              Int            @id @default(autoincrement())
+  userId          Int            @unique
+  shopName        String
+  description     String?
+  logoUrl         String?
+  bannerUrl       String?
+  status          MerchantStatus @default(INCOMPLETE)
+  walletBalance   Decimal        @default(0.0) @db.Decimal(15, 2)
+  pendingBalance  Decimal        @default(0.0) @db.Decimal(15, 2)
+  kybDocuments    String?        // JSON array URL dokumen KTM/SK
+  rejectionReason String?
+  badge           MerchantBadge  @default(NEWCOMER)
+  createdAt       DateTime       @default(now())
+
+  // Relations
+  user              User                @relation(fields: [userId], references: [id])
+  gigs              Gig[]
+  orders            Order[]             @relation("MerchantOrders")
+  associates        MerchantAssociate[]
+  bankAccounts      BankAccount[]
+  customOffers      CustomOffer[]       @relation("MerchantCustomOffers")
+  withdrawals       Withdrawal[]
+  featuredPlacements FeaturedPlacement[]
+}
+
+model BankAccount {
+  id                Int     @id @default(autoincrement())
+  merchantId        Int
+  bankName          String
+  accountNumber     String
+  accountHolderName String
+  isPrimary         Boolean @default(false)
+
+  // Relations
+  merchant    Merchant     @relation(fields: [merchantId], references: [id])
+  withdrawals Withdrawal[]
+}
+
+model MerchantAssociate {
+  id         Int                 @id @default(autoincrement())
+  merchantId Int
+  userId     Int
+  permission AssociatePermission @default(VIEW_ONLY)
+
+  // Relations
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([merchantId, userId])
+}
+
+model Category {
+  id             Int     @id @default(autoincrement())
+  name           String
+  commissionRate Decimal @db.Decimal(5, 2)
+
+  // Relations
+  gigs Gig[]
+}
+
+model Gig {
+  id             Int       @id @default(autoincrement())
+  merchantId     Int
+  categoryId     Int
+  title          String
+  description    String
+  price          Decimal   @db.Decimal(15, 2)
+  mediaUrls      String?   
+  status         GigStatus @default(DRAFT)
+  rejectionReason String?  
+  createdAt      DateTime  @default(now())
+
+  // Relations
+  merchant           Merchant            @relation(fields: [merchantId], references: [id])
+  category           Category            @relation(fields: [categoryId], references: [id])
+  orders             Order[]
+  featuredPlacements FeaturedPlacement[]
+}
+
+model FeaturedPlacement {
+  id          Int                   @id @default(autoincrement())
+  merchantId  Int
+  gigId       Int
+  durationDays Int                  
+  amount      Decimal               @db.Decimal(15, 2)
+  status      FeaturedPaymentStatus @default(PENDING_PAYMENT)
+  proofUrl    String?               
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime              @default(now())
+
+  // Relations
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+  gig      Gig      @relation(fields: [gigId], references: [id])
+}
+
+model Order {
+  id            Int         @id @default(autoincrement())
+  clientId      Int
+  merchantId    Int
+  gigId         Int?
+  customOfferId Int?
+  totalAmount   Decimal     @db.Decimal(15, 2)
+  adminFee      Decimal     @default(0.0) @db.Decimal(15, 2)
+  status        OrderStatus @default(UNPAID)
+  deadline      DateTime?
+  createdAt     DateTime    @default(now())
+
+  // Relations
+  client       User               @relation("ClientOrders", fields: [clientId], references: [id])
+  merchant     Merchant           @relation("MerchantOrders", fields: [merchantId], references: [id])
+  gig          Gig?               @relation(fields: [gigId], references: [id])
+  customOffer  CustomOffer?       @relation(fields: [customOfferId], references: [id])
+  transactions Transaction[]
+  deliverables OrderDeliverable[]
+  review       Review?
+  dispute      Dispute?
+}
+
+model OrderDeliverable {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  fileUrl     String   
+  message     String?  
+  submittedBy Int
+  createdAt   DateTime @default(now())
+
+  // Relations
+  order     Order @relation(fields: [orderId], references: [id])
+  submitter User  @relation("DeliverableSubmitter", fields: [submittedBy], references: [id])
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @unique
+  clientId  Int
+  rating    Int      
+  comment   String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  order  Order @relation(fields: [orderId], references: [id])
+  client User  @relation(fields: [clientId], references: [id])
+}
+
+model Dispute {
+  id           Int           @id @default(autoincrement())
+  orderId      Int           @unique
+  reason       String
+  evidenceUrls String?       // JSON array of URLs (screenshot/bukti)
+  status       DisputeStatus @default(OPEN)
+  validatorId  Int?
+  verdictNote  String?
+
+  // Relations
+  order     Order @relation(fields: [orderId], references: [id])
+  validator User? @relation("DisputeValidator", fields: [validatorId], references: [id])
+}
+
+model Transaction {
+  id         Int               @id @default(autoincrement())
+  orderId    Int
+  userId     Int
+  type       TransactionType
+  amount     Decimal           @db.Decimal(15, 2)
+  status     TransactionStatus @default(PENDING)
+  proofUrl   String?           // Bukti transfer (upload manual)
+  verifiedBy Int?
+  createdAt  DateTime          @default(now())
+
+  // Relations
+  order    Order @relation(fields: [orderId], references: [id])
+  user     User  @relation(fields: [userId], references: [id])
+  verifier User? @relation("TransactionVerifier", fields: [verifiedBy], references: [id])
+}
+
+model CustomOffer {
+  id           Int               @id @default(autoincrement())
+  merchantId   Int
+  clientId     Int
+  title        String
+  description  String?
+  price        Decimal           @db.Decimal(15, 2)
+  deadlineDays Int
+  status       CustomOfferStatus @default(PENDING)
+  createdAt    DateTime          @default(now())
+
+  // Relations
+  merchant Merchant @relation("MerchantCustomOffers", fields: [merchantId], references: [id])
+  client   User     @relation("ClientCustomOffers", fields: [clientId], references: [id])
+  orders   Order[]
+}
+
+model Withdrawal {
+  id            Int              @id @default(autoincrement())
+  merchantId    Int
+  bankAccountId Int
+  amount        Decimal          @db.Decimal(15, 2)
+  status        WithdrawalStatus @default(PENDING)
+  proofUrl      String?          
+  processedBy   Int?             
+  createdAt     DateTime         @default(now())
+  completedAt   DateTime?
+
+  // Relations
+  merchant    Merchant    @relation(fields: [merchantId], references: [id])
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+}
+
+model MonthlyReport {
+  id              Int                 @id @default(autoincrement())
+  period          String              
+  totalGmv        Decimal             @db.Decimal(15, 2)
+  grossRevenue    Decimal             @db.Decimal(15, 2) // Commission Fee + Ad Revenue
+  operationalCost Decimal             @db.Decimal(15, 2) // Input manual oleh Finance
+  netProfit       Decimal             @db.Decimal(15, 2) // grossRevenue - operationalCost
+  cscShare        Decimal             @db.Decimal(15, 2) // Nominal jatah CSC (misal 60%)
+  cciShare        Decimal             @db.Decimal(15, 2) // Nominal jatah CCI (misal 40%)
+  status          MonthlyReportStatus @default(DRAFT)
+  proofOfTransfer String?             
+  createdAt       DateTime            @default(now())
+  lockedAt        DateTime?           
+
+  @@unique([period])
+}
