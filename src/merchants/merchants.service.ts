@@ -148,11 +148,6 @@ export class MerchantsService {
       where: { userId },
     });
     if (!merchant) throw new NotFoundException('Toko tidak ditemukan.');
-    if (merchant.status !== MerchantStatus.ACTIVE) {
-      throw new BadRequestException(
-        'Hanya toko terverifikasi yang dapat mengubah mode liburan.',
-      );
-    }
     return this.prisma.merchant.update({
       where: { id: merchant.id },
       data: { status: isOnVacation ? MerchantStatus.VACATION : MerchantStatus.ACTIVE }

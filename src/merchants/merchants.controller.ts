@@ -41,7 +41,7 @@ export class MerchantsController {
   findAll() {
     return this.merchantsService.findAllMerchants();
   }
-  // Endpoint: GET /merchants/profile untuk melihat profil toko sendiri (Hanya Merchant)
+  // Endpoint: GET /merchants/me untuk melihat profil toko sendiri (Hanya Merchant)
   @UseGuards(AuthGuard)
   @Get('profile')
   findMyMerchant(@Request() req: RequestWithUser) {
@@ -57,7 +57,7 @@ export class MerchantsController {
   @Patch(':id/edit/profile')
   updateProfile(
     @Request() req: RequestWithUser,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) 
     @Body() dto: UpdateProfileDto,
   ) {
     return this.merchantsService.updateProfileMerchant(req.user.sub, dto);
@@ -74,8 +74,8 @@ export class MerchantsController {
   @Patch('vacation-mode')
   toggleVacationMode(
     @Request() req: RequestWithUser,
-    @Body('isOnVacation') isOnVacation: boolean,
-  ) {
+    @Body('isOnVacation') isOnVacation: boolean,) {
     return this.merchantsService.toggleVacationMode(req.user.sub, isOnVacation);
-  }
+    }
 }
+
