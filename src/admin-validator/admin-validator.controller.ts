@@ -1,6 +1,7 @@
 import { Controller, Get, Patch, Body, Param, UseGuards, Request, Req, ForbiddenException, ParseIntPipe } from '@nestjs/common';
 import { AdminValidatorService } from './admin-validator.service';
 import { AuthGuard } from '../auth/auth.guard';
+import { MerchantStatus } from '@prisma/client'; 
 
 interface RequestWithUser extends Request {
     user: { sub: number; role: string };
@@ -8,7 +9,7 @@ interface RequestWithUser extends Request {
 
 @Controller('admin/validator')
 export class AdminValidatorController {
-    constructor(private adminValidatorService: AdminValidatorService) {}
+  constructor(private adminValidatorService: AdminValidatorService) {}
 
     private async checkValidatorRole(role: string) {
         if (role !== 'ADMIN_VALIDATOR' && role !== 'SUPER_ADMIN') {
