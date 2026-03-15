@@ -78,4 +78,10 @@ export class MerchantsController {
     @Body('isOnVacation') isOnVacation: boolean,) {
     return this.merchantsService.toggleVacationMode(req.user.sub, isOnVacation);
     }
+  
+  @UseGuards(AuthGuard)
+  @Patch('closed')
+  closeMerchant(@Request() req: RequestWithUser) {
+    return this.merchantsService.closeMerchant(req.user.sub);
   }
+}
