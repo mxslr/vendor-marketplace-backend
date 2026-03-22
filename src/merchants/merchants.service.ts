@@ -150,10 +150,54 @@ export class MerchantsService {
         'Hanya toko terverifikasi yang dapat mengubah mode liburan.',
       );
     }
-    return this.prisma.merchant.update({
-      where: { id: merchant.id },
-      data: { status: isOnVacation ? MerchantStatus.VACATION : MerchantStatus.ACTIVE }
-      });
-    }
-  }
+    return this.prisma.$transaction(async (tx) => {
 
+    const newStatus = isOnVacation
+      ? MerchantStatus.VACATION
+      : MerchantStatus.ACTIVE;
+
+    await tx.merchant.update({
+      where: { id: merchant.id },
+      data: { status: newStatus }
+    });
+
+    await tx.gig.updateMany({
+      where: { merchantId: merchant.id },
+      data: {
+        status: isOnVacation ? 'PAUSED' : 'ACTIVE'
+      }
+    });
+
+  });
+}
+
+  async closeMerchant(userId: number) {
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { userId }
+    });
+
+    if (!merchant) {
+      throw new NotFoundException('Toko tidak ditemukan.')
+    }
+
+    if (merchant.status !== MerchantStatus.ACTIVE) {
+      throw new BadRequestException(
+        'Hanya toko aktif yang bisa menutup toko'
+      )
+    }
+
+     return this.prisma.$transaction(async (tx) => {
+
+    await tx.merchant.update({
+      where: { id: merchant.id },
+      data: { status: MerchantStatus.CLOSED }
+    });
+
+    await tx.gig.updateMany({
+      where: { merchantId: merchant.id },
+      data: { status: 'REMOVED' }
+    });
+
+  });
+  }
+}
