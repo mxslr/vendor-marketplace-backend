@@ -99,6 +99,12 @@ enum WithdrawalStatus {
   REJECTED
 }
 
+enum FeaturedStatus {
+  NONE
+  FEATURED
+}
+
+
 enum FeaturedPaymentStatus {
   PENDING_PAYMENT
   PENDING_VERIFICATION
@@ -148,9 +154,10 @@ model Merchant {
   status          MerchantStatus @default(INCOMPLETE)
   walletBalance   Decimal        @default(0.0) @db.Decimal(15, 2)
   pendingBalance  Decimal        @default(0.0) @db.Decimal(15, 2)
-  kybDocuments    String?  
+  kybDocuments    String?        
   rejectionReason String?
   badge           MerchantBadge  @default(NEWCOMER)
+  suspendedUntil   DateTime?
   createdAt       DateTime       @default(now())
 
   // Relations
@@ -210,7 +217,8 @@ model Gig {
   status         GigStatus @default(DRAFT)
   rejectionReason String?  
   createdAt      DateTime  @default(now())
-
+  featuredStatus FeaturedStatus @default(NONE)
+  featuredUntil DateTime?
   // Relations
   merchant           Merchant            @relation(fields: [merchantId], references: [id])
   category           Category            @relation(fields: [categoryId], references: [id])
