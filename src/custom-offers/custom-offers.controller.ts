@@ -5,11 +5,9 @@ import {
 import { CustomOffersService } from './custom-offers.service';
 import { AuthGuard } from '../auth/auth.guard'; 
 
-// Interface user yang lebih rapi
-interface RequestWithUser extends Request {
+interface RequestWithUsers extends Request {
   user: {
     sub: number;
-    name: string;
     role: string;
   };
 }
